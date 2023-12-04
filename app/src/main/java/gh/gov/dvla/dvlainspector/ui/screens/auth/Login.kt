@@ -1,6 +1,5 @@
-package com.dvla.pvts.dvlainspectorapp.ui.screens.auth
+package gh.gov.dvla.dvlainspector.ui.screens.auth
 
-import android.text.TextUtils
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
@@ -20,9 +19,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import gh.gov.dvla.dvlainspector.R
 import gh.gov.dvla.dvlainspector.ui.viewmodels.AuthorityViewModel
@@ -33,6 +30,7 @@ fun LoginScreen(
     authorityViewModel: AuthorityViewModel,
     navController: NavHostController,
     next: String,
+    onCommunicate: (String, Int, () -> Unit) -> Unit,
 ) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -88,18 +86,14 @@ fun LoginScreen(
                         colors = TextFieldDefaults.outlinedTextFieldColors(focusedLeadingIconColor = MaterialTheme.colorScheme.primary)
                     )
 
-                    if (!TextUtils.isEmpty(errorMessage)) {
-                        Text(
-                            text = errorMessage,
-                            modifier = Modifier.padding(top = 8.dp),
-                            fontSize = 10.sp,
-                            textAlign = TextAlign.Center,
-                            color = MaterialTheme.colorScheme.error
-                        )
-                    }
-
                     Button(
-                        onClick = { authorityViewModel.login(email, password) },
+                        onClick = {
+                            authorityViewModel.login(
+                                email = email,
+                                password = password,
+                                onCommunicate = onCommunicate
+                            )
+                        },
                         modifier = Modifier.padding(top = 16.dp)
                     ) {
                         Text(text = "login")

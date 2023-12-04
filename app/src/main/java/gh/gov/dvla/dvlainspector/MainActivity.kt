@@ -10,7 +10,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import androidx.navigation.compose.rememberNavController
-import com.dvla.pvts.dvlainspectorapp.ui.InspectionNavHost
+import gh.gov.dvla.dvlainspector.ui.nav.InspectionNavHost
 import gh.gov.dvla.dvlainspector.ui.theme.DVLAInspectorTheme
 
 class MainActivity : ComponentActivity() {

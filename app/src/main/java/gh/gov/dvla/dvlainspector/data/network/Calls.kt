@@ -1,8 +1,5 @@
 package gh.gov.dvla.dvlainspector.data.network
 
-import com.dvla.pvts.dvlainspectorapp.data.network.HOST
-import com.dvla.pvts.dvlainspectorapp.data.network.PORT
-import com.dvla.pvts.dvlainspectorapp.data.network.ktorHttpClient
 import gh.gov.dvla.dvlainspector.data.inspection.InspectionState
 import gh.gov.dvla.dvlainspector.data.network.models.Credentials
 import io.ktor.client.request.get

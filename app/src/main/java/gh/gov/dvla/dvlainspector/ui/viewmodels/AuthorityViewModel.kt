@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import gh.gov.dvla.dvlainspector.data.network.postLogin
 import io.ktor.client.call.body
+import io.ktor.client.network.sockets.ConnectTimeoutException
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.isSuccess
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,21 +25,37 @@ class AuthorityViewModel : ViewModel() {
     private val _error = MutableStateFlow("")
     val error: StateFlow<String> = _error.asStateFlow()
 
-    fun login(email: String, password: String) {
+    fun login(email: String, password: String, onCommunicate: (String, Int, () -> Unit) -> Unit) {
         viewModelScope.launch {
-            _error.value = ""
-            val response = postLogin(email, password)
-            if (response.status == HttpStatusCode.BadRequest) {
-                _error.value = response.body()
-                _isLogged.value = false
-                Log.i(TAG, "login: error ${error.value}")
-            }
+            try {
+                _error.value = ""
+                val response = postLogin(email, password)
 
-            if (response.status.isSuccess()) {
-                val k: String = response.body()
-                _apiKey.value = k.replace("\"", "")
-                _isLogged.value = true
-                Log.i(TAG, "login: key: ${_apiKey.value}")
+                if (response.status == HttpStatusCode.InternalServerError) {
+                    onCommunicate("Something went wrong. Please contact support", 1) {}
+                }
+
+                if (response.status == HttpStatusCode.BadRequest) {
+                    val message: String = response.body()
+                    onCommunicate(message, 0) {}
+                    _isLogged.value = false
+                    Log.i(TAG, "login: BAD REQUEST $message")
+                }
+
+                if (response.status.isSuccess()) {
+                    val k: String = response.body()
+                    _apiKey.value = k.replace("\"", "")
+                    _isLogged.value = true
+                    onCommunicate("Login succeeded", 1) {}
+                    Log.i(TAG, "login: key: ${_apiKey.value}")
+                }
+            } catch (e: ConnectTimeoutException) {
+                Log.e(TAG, "login: EXCEPTION", e)
+                onCommunicate("Time out", 1) {}
+            } catch (e: Exception) {
+                Log.e(TAG, "login: EXCEPTION", e)
+            } finally {
+
             }
         }
     }

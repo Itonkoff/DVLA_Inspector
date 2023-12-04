@@ -38,20 +38,13 @@ import com.dvla.pvts.dvlainspectorapp.data.network.models.Lane
 import com.dvla.pvts.dvlainspectorapp.ui.viewmodels.InspectionViewModel
 import gh.gov.dvla.dvlainspector.ui.viewmodels.AuthorityViewModel
 
-fun getLanes(): List<Lane> = listOf(
-    Lane("aaa", 1, 0),
-    Lane("aaa", 2, 2),
-    Lane("aaa", 3, 5),
-    Lane("aaa", 4, 1),
-)
-
-// TODO: Fix the bar height padding
 @OptIn(ExperimentalMaterialApi::class)
 @Composable
 fun LanesScreen(
     authorityViewModel: AuthorityViewModel,
     inspectionViewModel: InspectionViewModel,
     navController: NavHostController,
+    onCommunicate: (String, Int, () -> Unit) -> Unit,
 ) {
     val apiKey by authorityViewModel.apiKey.collectAsState()
     inspectionViewModel.getLanes(
@@ -59,7 +52,9 @@ fun LanesScreen(
         onUnauthorized = {
             authorityViewModel.isUnauthorised()
             navController.navigate("login-screen/0")
-        })
+        },
+        onCommunicate = onCommunicate
+    )
 
     val lanes by inspectionViewModel.affiliatedLanes.collectAsState()
     val isRefreshingLanes by inspectionViewModel.isRefreshingLanes.collectAsState()
@@ -72,7 +67,9 @@ fun LanesScreen(
                 onUnauthorized = {
                     authorityViewModel.isUnauthorised()
                     navController.navigate("login-screen/0")
-                })
+                },
+                onCommunicate = onCommunicate
+            )
         })
 
     Box(
@@ -80,28 +77,25 @@ fun LanesScreen(
             .fillMaxSize()
             .pullRefresh(pullRefreshState)
     ) {
-        LazyVerticalGrid(
-            columns = GridCells.Fixed(count = 2),
-            modifier = Modifier
-                .fillMaxWidth()
-                .fillMaxHeight()
-                .padding(end = 8.dp),
-            content = {
-                if (lanes.isNotEmpty()) {
+        if (lanes.isNotEmpty()) {
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(count = 2),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(end = 8.dp),
+                content = {
                     items(lanes) {
                         Lane(lane = it, navController = navController)
                     }
-                } else {
-                    item {
-                        Text(
-                            text = "Nothing to show",
-                            modifier = Modifier.fillMaxWidth(),
-                            textAlign = TextAlign.Center,
-                            fontSize = 16.sp
-                        )
-                    }
                 }
-            })
+            )
+        } else {
+            Text(
+                text = "Nothing to show",
+                modifier = Modifier.align(Alignment.Center),
+                fontSize = 16.sp
+            )
+        }
 
         PullRefreshIndicator(
             isRefreshingLanes,

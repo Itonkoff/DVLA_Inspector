@@ -1,9 +1,11 @@
 @file:OptIn(ExperimentalMaterial3Api::class)
 
-package com.dvla.pvts.dvlainspectorapp.ui.screens.inspection
+package gh.gov.dvla.dvlainspector.ui.screens.inspection
 
 import android.text.TextUtils
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -13,6 +15,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.pullrefresh.pullRefresh
+import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -136,13 +140,14 @@ private var mcChecks = listOf(
     "Chains and guards",
 )
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterialApi::class)
 @Composable
 fun InspectionPoints(
     authorityViewModel: AuthorityViewModel,
     inspectionViewModel: InspectionViewModel,
     navController: NavController,
     bookingId: String,
+    onCommunicate: (String, Int, () -> Unit) -> Unit,
 ) {
 
     var interiorSelected by remember { mutableStateOf(false) }
@@ -156,9 +161,22 @@ fun InspectionPoints(
 
     var odometerReading by remember { mutableStateOf("") }
 
-    val state = inspectionViewModel.inspectionState
+    val state by inspectionViewModel.inspectionState.collectAsState()
 
     val apiKey by authorityViewModel.apiKey.collectAsState()
+
+    val isSubmitting by inspectionViewModel.isPostingInspection.collectAsState()
+
+    val isMotorCycle = inspectionViewModel.isVehicleAMotorCycle(bookingId)
+
+    val pullRefreshState = rememberPullRefreshState(
+        refreshing = isSubmitting,
+        onRefresh = {}
+    )
+
+    fun refresh() {
+        inspectionViewModel.updateState(state)
+    }
 
     fun turnOffAll() {
         interiorSelected = false
@@ -169,426 +187,461 @@ fun InspectionPoints(
         motorCycleSelected = false
     }
 
-    fun triggerInteriorRecompose() {
-        interiorSelected = !interiorSelected
-        interiorSelected = !interiorSelected
-    }
-
-    fun triggerExteriorRecompose() {
-        exteriorSelected = !exteriorSelected
-        exteriorSelected = !exteriorSelected
-    }
-
-    fun triggerUnderBonnetRecompose() {
-        underBonnetSelected = !underBonnetSelected
-        underBonnetSelected = !underBonnetSelected
-    }
-
-    fun triggerUnderVehicleRecompose() {
-        underVehicleSelected = !underVehicleSelected
-        underVehicleSelected = !underVehicleSelected
-    }
-
-    fun triggerAccessoryRecompose() {
-        accessorySelected = !accessorySelected
-        accessorySelected = !accessorySelected
-    }
-
-    fun triggerMotorCycleRecompose() {
-        motorCycleSelected = !motorCycleSelected
-        motorCycleSelected = !motorCycleSelected
-    }
-
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 8.dp)
+            .pullRefresh(pullRefreshState)
     ) {
-        LazyRow(
-            modifier = Modifier.padding(vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            content = {
-                items(checks) { title ->
-                    ChecksChip(
-                        title = title,
-                        selected = when (title) {
-                            "Interior checks" -> interiorSelected
-                            "Exterior (topside) checks" -> exteriorSelected
-                            "Under bonnet checks" -> underBonnetSelected
-                            "Under vehicle checks" -> underVehicleSelected
-                            "Accessory checks" -> accessorySelected
-                            "Motor cycle checks" -> motorCycleSelected
-                            else -> false
-                        },
-                        onSelectedChange = {
-                            turnOffAll()
-                            when (title) {
-                                "Interior checks" -> interiorSelected = it
-                                "Exterior (topside) checks" -> exteriorSelected = it
-                                "Under bonnet checks" -> underBonnetSelected = it
-                                "Under vehicle checks" -> underVehicleSelected = it
-                                "Accessory checks" -> accessorySelected = it
-                                "Motor cycle checks" -> motorCycleSelected = it
-                                else -> {
-                                    false
-                                }
-                            }
-                        }
-                    )
-                }
-
-                item {
-                    ElevatedFilterChip(
-                        selected = showSubmissionDialog,
-                        onClick = {
-                            showSubmissionDialog = true
-                        },
-                        modifier = Modifier
-                            .height(40.dp)
-                            .padding(start = 24.dp),
-                        label = { Text(text = "Submit", fontSize = 13.sp) },
-                        leadingIcon = {
-                            Icon(
-                                imageVector = Icons.Filled.CloudUpload,
-                                contentDescription = null
-                            )
-                        },
-                    )
-                }
-            })
-
-        OutlinedTextField(
-            value = odometerReading,
-            onValueChange = {
-                odometerReading = it
-                state.odometerReading = it.toDouble()
-            },
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 32.dp),
-            leadingIcon = {
-                Icon(imageVector = Icons.Filled.Speed, contentDescription = "Odometer reding icon")
-            },
-            label = {
-                Text(text = "Odometer reading")
-            },
-            colors = TextFieldDefaults.outlinedTextFieldColors(focusedLeadingIconColor = MaterialTheme.colorScheme.primary),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
-        )
+                .fillMaxSize()
+                .padding(horizontal = 8.dp)
+        ) {
+            LazyRow(
+                modifier = Modifier.padding(vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                content = {
+                    items(checks) { title ->
 
-        LazyColumn(
-            modifier = Modifier.fillMaxHeight(),
-            content = {
-                item {
-                    if (interiorSelected) {
-                        GroupListItem(
-                            list = intChecks,
-                            comment = state.interiorChecks.comment,
-                            onCommentChanged = {
-                                state.interiorChecks.comment = it
-                                triggerInteriorRecompose()
-                            },
-                            state = state
-                        ) { check, value ->
-                            when (check) {
-                                "Seats arrangement/ spacing/ secure mounting" -> state.interiorChecks.seatArrangement =
-                                    value
-
-                                "Seat head restraints, seat adjustments" -> state.interiorChecks.seatHeadRestraintAdjustment =
-                                    value
-
-                                "Seat belts front and rear presents" -> state.interiorChecks.seatBeltFrontRearPresence =
-                                    value
-
-                                "Seat belts secured/ condition/ function/ performance" -> state.interiorChecks.seatBeltSecuredConditionFunctionPerformance =
-                                    value
-
-                                "Headlamps, turn signal, hazard switches" -> state.interiorChecks.headlampTurnSignalHazardSwitch =
-                                    value
-
-                                "Ignition switch - presents/ functional" -> state.interiorChecks.ignitionPresenceFunction =
-                                    value
-
-                                "Speedometer" -> state.interiorChecks.speedometer = value
-                                "Tell tale indicators, dash/ panel illumination" -> state.interiorChecks.tellTaleDashPanelIllumination =
-                                    value
-
-                                "Wipers and washers" -> state.interiorChecks.wipersWashers = value
-                                "Wind screen (cracks, visibility), internal obstructions" -> state.interiorChecks.windScreen =
-                                    value
-
-                                "Interior exterior mirrors" -> state.interiorChecks.interiorExteriorMirrors =
-                                    value
-
-                                "Foot pedals/ Hand break/ Servo operation" -> state.interiorChecks.footPedalsHandBrakeServoOperation =
-                                    value
-
-                                "Service break test/ performance" -> state.interiorChecks.serviceBrakeTestPerformance =
-                                    value
-
-                                "Steering wheel and column" -> state.interiorChecks.steeringWheelColumn =
-                                    value
-
-                                "Front door (glazing)/ Window tinting" -> state.interiorChecks.frontDoorGlazingWindowTinting =
-                                    value
-
-                                "Door handles/ locks/ window control/ hinges/ latches" -> state.interiorChecks.handlesLocksWindowControl =
-                                    value
-
-                                "Horn" -> state.interiorChecks.horn = value
-                            }
-
-                            triggerInteriorRecompose()
-                        }
-                    }
-                }
-
-                item {
-                    if (exteriorSelected) {
-                        GroupListItem(
-                            list = extChecks,
-                            state = state,
-                            comment = state.exteriorChecks.comment,
-                            onCommentChanged = {
-                                state.exteriorChecks.comment = it
-                                triggerExteriorRecompose()
-                            },
-                        ) { check, value ->
-                            when (check) {
-                                "Front/ Rear registration" -> state.exteriorChecks.frontRearRegistration =
-                                    value
-
-                                "Reflectors (front/ rear)" -> state.exteriorChecks.frontRearReflectors =
-                                    value
-
-                                "Exterior mirrors, wiper blades" -> state.exteriorChecks.exteriorMirrorsWiperBlades =
-                                    value
-
-                                "Headlamp and headlamp aim" -> state.exteriorChecks.headlampAim =
-                                    value
-
-                                "Front lights, including turn signal indicators and hazard lights" -> state.exteriorChecks.frontLightsTurnAndHazard =
-                                    value
-
-                                "Rear lights, hazard lights, brake or stop lights" -> state.exteriorChecks.rearLightsHazardBrakeStop =
-                                    value
-
-                                "Lamps for number plate, parking, reversing" -> state.exteriorChecks.lampsNumberPlateParkingReversing =
-                                    value
-
-                                "Additional/ auxiliary lamps (non complying)" -> state.exteriorChecks.additionalLamps =
-                                    value
-
-                                "Fuel tank filler cap" -> state.exteriorChecks.fuelTankFillerCap =
-                                    value
-
-                                "Front/ rear wheels and tires (condition)" -> state.exteriorChecks.frontRearTireCondition =
-                                    value
-
-                                "Tire thread depth" -> state.exteriorChecks.tireThreadDepth = value
-                                "Wheel nuts/ studs" -> state.exteriorChecks.wheelNuts = value
-                                "Front/ rear shock absorbers" -> state.exteriorChecks.frontRearShockAbsorbers =
-                                    value
-
-                                "Bumpers (front and back protection)" -> state.exteriorChecks.bumpers =
-                                    value
-
-                                "External protection" -> state.exteriorChecks.externalProtection =
-                                    value
-
-                                "Exhaust emission" -> state.exteriorChecks.exhaustEmission = value
-                                "Trailer coupling/ hitches - (large trucks only)" -> state.exteriorChecks.trailerCouplingHitches =
-                                    value
-
-                                "Fifth wheel (truck - tractor only)" -> state.exteriorChecks.fifthWheel =
-                                    value
-
-                                "General condition of the vehicle" -> state.exteriorChecks.generalCondition =
-                                    value
-                            }
-
-                            triggerExteriorRecompose()
-                        }
-                    }
-                }
-
-                item {
-                    if (underBonnetSelected) {
-                        GroupListItem(
-                            list = ubChecks,
-                            state = state,
-                            comment = state.underBonnetChecks.comment,
-                            onCommentChanged = {
-                                state.underBonnetChecks.comment = it
-                                triggerUnderBonnetRecompose()
-                            },
-                        ) { check, value ->
-                            when (check) {
-                                "Vehicle chassis number" -> state.underBonnetChecks.chassisNumber =
-                                    value
-
-                                "Radiator cap" -> state.underBonnetChecks.radiatorCap = value
-                                "Braking system/ fluid levels" -> state.underBonnetChecks.braking =
-                                    value
-
-                                "Horses/ tubes" -> state.underBonnetChecks.horsesTubes = value
-                                "Battery base/ clamps and fasteners" -> state.underBonnetChecks.battery =
-                                    value
-
-                                "Wiring/ insulation" -> state.underBonnetChecks.wiring = value
-                                "Fuel and oil leaks" -> state.underBonnetChecks.fuelOilLeaks = value
-                                "Fuel system" -> state.underBonnetChecks.fuelSystem = value
-                                "Exhaust system" -> state.underBonnetChecks.exhaustSystem = value
-                                "Steering and suspension systems" -> state.underBonnetChecks.steeringSuspensionSystem =
-                                    value
-
-                                "Cleanliness" -> state.underBonnetChecks.cleanLines = value
-                                "Vehicle structure" -> state.underBonnetChecks.vehicleStructure =
-                                    value
-                            }
-                            triggerUnderBonnetRecompose()
-                        }
-                    }
-                }
-
-                item {
-                    if (underVehicleSelected) {
-                        GroupListItem(
-                            list = uvChecks,
-                            state = state,
-                            comment = state.underVehicleChecks.comment,
-                            onCommentChanged = {
-                                state.underVehicleChecks.comment = it
-                                triggerUnderVehicleRecompose()
-                            },
-                        ) { check, value ->
-                            when (check) {
-                                "Brake pipes and brake systems" -> state.underVehicleChecks.brakesAndPipes =
-                                    value
-
-                                "Parking brake system" -> state.underVehicleChecks.parkingBrakeSystem =
-                                    value
-
-                                "Steering assembly and dust boots" -> state.underVehicleChecks.steeringAssemblyDustBoots =
-                                    value
-
-                                "Wheels and tires" -> state.underVehicleChecks.wheelsAndTires =
-                                    value
-
-                                "Front suspension including shock absorbers" -> state.underVehicleChecks.frontSuspension =
-                                    value
-
-                                "Rear suspension including shock absorbers" -> state.underVehicleChecks.rearSuspension =
-                                    value
-
-                                "Drive shaft" -> state.underVehicleChecks.driveShaft = value
-                                "Engine and transmission mountings" -> state.underVehicleChecks.engineTransmissionMountings =
-                                    value
-
-                                "Exhaust system mounting" -> state.underVehicleChecks.exhaustSystemMountings =
-                                    value
-
-                                "Fuel and oil leaks (regular drip constant flow)" -> state.underVehicleChecks.fuelAndOilLeaks =
-                                    value
-
-                                "Excessive corrosion" -> state.underVehicleChecks.excessiveCorrosion =
-                                    value
-
-                                "Structure, general vehicle condition" -> state.underVehicleChecks.generalConditionAndStructure =
-                                    value
-                            }
-                            triggerUnderVehicleRecompose()
-                        }
-                    }
-                }
-
-                item {
-                    if (accessorySelected) {
-                        GroupListItem(
-                            list = accChecks,
-                            state = state,
-                            comment = state.accessoryChecks.comment,
-                            onCommentChanged = {
-                                state.accessoryChecks.comment = it
-                                triggerAccessoryRecompose()
-                            },
-                        ) { check, value ->
-                            when (check) {
-                                "Warning triangle" -> state.accessoryChecks.warningTriangle = value
-                                "Jack and wheel nut spanner" -> state.accessoryChecks.jackWheelNutSpanner =
-                                    value
-
-                                "Spare tire (presence/ condition)" -> state.accessoryChecks.spareTire =
-                                    value
-
-                                "Fire extinguisher" -> state.accessoryChecks.fireExtinguisher =
-                                    value
-                            }
-                            triggerAccessoryRecompose()
-                        }
-                    }
-                }
-
-                item {
-                    if (motorCycleSelected) {
-                        GroupListItem(
-                            list = mcChecks,
-                            state = state,
-                            comment = state.motorCycleChecks.comment,
-                            onCommentChanged = {
-                                state.motorCycleChecks.comment = it
-                                triggerMotorCycleRecompose()
-                            },
-                        ) { check, value ->
-                            when (check) {
-                                "Wiring" -> state.motorCycleChecks.wiring = value
-                                "Footrests" -> state.motorCycleChecks.footrests = value
-                                "Steering head bearings" -> state.motorCycleChecks.steeringHeadBearings =
-                                    value
-
-                                "Handle bars" -> state.motorCycleChecks.handleBars = value
-                                "Stands" -> state.motorCycleChecks.stands = value
-                                "Chains and guards" -> state.motorCycleChecks.chainsAndGuards =
-                                    value
-                            }
-                            triggerMotorCycleRecompose()
-                        }
-                    }
-                }
-            }
-        )
-
-        if (showSubmissionDialog) {
-            AlertDialog(
-                onDismissRequest = {
-                    showSubmissionDialog = false
-                },
-                icon = { Icon(imageVector = Icons.Default.Warning, contentDescription = null) },
-                text = { Text(text = "Are you sure you went through all checks and you would like to submit them?") },
-                confirmButton = {
-                    TextButton(
-                        onClick = {
-                            inspectionViewModel.submitInspection(
-                                bookingId = bookingId,
-                                apiKey = apiKey,
-                                onSuccess = {
-                                    // TODO: Add snackbar as primary short message communicator across app
-                                    navController.navigate("login-screen/0")
+                        if (isMotorCycle == true && title == "Motor cycle checks")
+                            ChecksChip(
+                                title = title,
+                                selected = when (title) {
+                                    "Interior checks" -> interiorSelected
+                                    "Exterior (topside) checks" -> exteriorSelected
+                                    "Under bonnet checks" -> underBonnetSelected
+                                    "Under vehicle checks" -> underVehicleSelected
+                                    "Accessory checks" -> accessorySelected
+                                    "Motor cycle checks" -> motorCycleSelected
+                                    else -> false
                                 },
-                                onUnauthorized = {
-                                    // TODO: Reorganise here so that navigation flows nicely
-                                    authorityViewModel.isUnauthorised()
-                                    navController.navigate("login-screen/0")
-                                })
-                        }) {
-                        Text(text = "Yes")
+                                onSelectedChange = {
+                                    turnOffAll()
+                                    when (title) {
+                                        "Interior checks" -> interiorSelected = it
+                                        "Exterior (topside) checks" -> exteriorSelected = it
+                                        "Under bonnet checks" -> underBonnetSelected = it
+                                        "Under vehicle checks" -> underVehicleSelected = it
+                                        "Accessory checks" -> accessorySelected = it
+                                        "Motor cycle checks" -> motorCycleSelected = it
+                                        else -> {
+                                            false
+                                        }
+                                    }
+                                }
+                            )
+                        else if (isMotorCycle == false && title != "Motor cycle checks")
+                            ChecksChip(
+                                title = title,
+                                selected = when (title) {
+                                    "Interior checks" -> interiorSelected
+                                    "Exterior (topside) checks" -> exteriorSelected
+                                    "Under bonnet checks" -> underBonnetSelected
+                                    "Under vehicle checks" -> underVehicleSelected
+                                    "Accessory checks" -> accessorySelected
+                                    "Motor cycle checks" -> motorCycleSelected
+                                    else -> false
+                                },
+                                onSelectedChange = {
+                                    turnOffAll()
+                                    when (title) {
+                                        "Interior checks" -> interiorSelected = it
+                                        "Exterior (topside) checks" -> exteriorSelected = it
+                                        "Under bonnet checks" -> underBonnetSelected = it
+                                        "Under vehicle checks" -> underVehicleSelected = it
+                                        "Accessory checks" -> accessorySelected = it
+                                        "Motor cycle checks" -> motorCycleSelected = it
+                                        else -> {
+                                            false
+                                        }
+                                    }
+                                }
+                            )
                     }
-                }, dismissButton = {
-                    TextButton(onClick = { showSubmissionDialog = false }) {
-                        Text(text = "No")
+
+                    item {
+                        ElevatedFilterChip(
+                            selected = showSubmissionDialog,
+                            onClick = {
+                                showSubmissionDialog = true
+                            },
+                            modifier = Modifier
+                                .height(40.dp)
+                                .padding(start = 24.dp),
+                            label = { Text(text = "Submit", fontSize = 13.sp) },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Filled.CloudUpload,
+                                    contentDescription = null
+                                )
+                            },
+                        )
                     }
                 })
+
+            OutlinedTextField(
+                value = odometerReading,
+                onValueChange = {
+                    odometerReading = it
+                    state.odometerReading = it.toDouble()
+                    inspectionViewModel.updateState(state)
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 32.dp),
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Filled.Speed,
+                        contentDescription = "Odometer reding icon"
+                    )
+                },
+                label = {
+                    Text(text = "Odometer reading")
+                },
+                colors = TextFieldDefaults.outlinedTextFieldColors(focusedLeadingIconColor = MaterialTheme.colorScheme.primary),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+            )
+
+            LazyColumn(
+                modifier = Modifier.fillMaxHeight(),
+                content = {
+                    item {
+                        if (interiorSelected) {
+                            GroupListItem(
+                                list = intChecks,
+                                comment = state.interiorChecks.comment,
+                                onCommentChanged = {
+                                    state.interiorChecks.comment = it
+                                    refresh()
+                                },
+                                state = state
+                            ) { check, value ->
+                                when (check) {
+                                    "Seats arrangement/ spacing/ secure mounting" -> state.interiorChecks.seatArrangement =
+                                        value
+
+                                    "Seat head restraints, seat adjustments" -> state.interiorChecks.seatHeadRestraintAdjustment =
+                                        value
+
+                                    "Seat belts front and rear presents" -> state.interiorChecks.seatBeltFrontRearPresence =
+                                        value
+
+                                    "Seat belts secured/ condition/ function/ performance" -> state.interiorChecks.seatBeltSecuredConditionFunctionPerformance =
+                                        value
+
+                                    "Headlamps, turn signal, hazard switches" -> state.interiorChecks.headlampTurnSignalHazardSwitch =
+                                        value
+
+                                    "Ignition switch - presents/ functional" -> state.interiorChecks.ignitionPresenceFunction =
+                                        value
+
+                                    "Speedometer" -> state.interiorChecks.speedometer = value
+                                    "Tell tale indicators, dash/ panel illumination" -> state.interiorChecks.tellTaleDashPanelIllumination =
+                                        value
+
+                                    "Wipers and washers" -> state.interiorChecks.wipersWashers =
+                                        value
+
+                                    "Wind screen (cracks, visibility), internal obstructions" -> state.interiorChecks.windScreen =
+                                        value
+
+                                    "Interior exterior mirrors" -> state.interiorChecks.interiorExteriorMirrors =
+                                        value
+
+                                    "Foot pedals/ Hand break/ Servo operation" -> state.interiorChecks.footPedalsHandBrakeServoOperation =
+                                        value
+
+                                    "Service break test/ performance" -> state.interiorChecks.serviceBrakeTestPerformance =
+                                        value
+
+                                    "Steering wheel and column" -> state.interiorChecks.steeringWheelColumn =
+                                        value
+
+                                    "Front door (glazing)/ Window tinting" -> state.interiorChecks.frontDoorGlazingWindowTinting =
+                                        value
+
+                                    "Door handles/ locks/ window control/ hinges/ latches" -> state.interiorChecks.handlesLocksWindowControl =
+                                        value
+
+                                    "Horn" -> state.interiorChecks.horn = value
+                                }
+
+                                inspectionViewModel.updateState(state)
+                            }
+                        }
+                    }
+
+                    item {
+                        if (exteriorSelected) {
+                            GroupListItem(
+                                list = extChecks,
+                                state = state,
+                                comment = state.exteriorChecks.comment,
+                                onCommentChanged = {
+                                    state.exteriorChecks.comment = it
+                                    refresh()
+                                },
+                            ) { check, value ->
+                                when (check) {
+                                    "Front/ Rear registration" -> state.exteriorChecks.frontRearRegistration =
+                                        value
+
+                                    "Reflectors (front/ rear)" -> state.exteriorChecks.frontRearReflectors =
+                                        value
+
+                                    "Exterior mirrors, wiper blades" -> state.exteriorChecks.exteriorMirrorsWiperBlades =
+                                        value
+
+                                    "Headlamp and headlamp aim" -> state.exteriorChecks.headlampAim =
+                                        value
+
+                                    "Front lights, including turn signal indicators and hazard lights" -> state.exteriorChecks.frontLightsTurnAndHazard =
+                                        value
+
+                                    "Rear lights, hazard lights, brake or stop lights" -> state.exteriorChecks.rearLightsHazardBrakeStop =
+                                        value
+
+                                    "Lamps for number plate, parking, reversing" -> state.exteriorChecks.lampsNumberPlateParkingReversing =
+                                        value
+
+                                    "Additional/ auxiliary lamps (non complying)" -> state.exteriorChecks.additionalLamps =
+                                        value
+
+                                    "Fuel tank filler cap" -> state.exteriorChecks.fuelTankFillerCap =
+                                        value
+
+                                    "Front/ rear wheels and tires (condition)" -> state.exteriorChecks.frontRearTireCondition =
+                                        value
+
+                                    "Tire thread depth" -> state.exteriorChecks.tireThreadDepth =
+                                        value
+
+                                    "Wheel nuts/ studs" -> state.exteriorChecks.wheelNuts =
+                                        value
+
+                                    "Front/ rear shock absorbers" -> state.exteriorChecks.frontRearShockAbsorbers =
+                                        value
+
+                                    "Bumpers (front and back protection)" -> state.exteriorChecks.bumpers =
+                                        value
+
+                                    "External protection" -> state.exteriorChecks.externalProtection =
+                                        value
+
+                                    "Exhaust emission" -> state.exteriorChecks.exhaustEmission =
+                                        value
+
+                                    "Trailer coupling/ hitches - (large trucks only)" -> state.exteriorChecks.trailerCouplingHitches =
+                                        value
+
+                                    "Fifth wheel (truck - tractor only)" -> state.exteriorChecks.fifthWheel =
+                                        value
+
+                                    "General condition of the vehicle" -> state.exteriorChecks.generalCondition =
+                                        value
+                                }
+
+                                inspectionViewModel.updateState(state)
+                            }
+                        }
+                    }
+
+                    item {
+                        if (underBonnetSelected) {
+                            GroupListItem(
+                                list = ubChecks,
+                                state = state,
+                                comment = state.underBonnetChecks.comment,
+                                onCommentChanged = {
+                                    state.underBonnetChecks.comment = it
+                                    refresh()
+                                },
+                            ) { check, value ->
+                                when (check) {
+                                    "Vehicle chassis number" -> state.underBonnetChecks.chassisNumber =
+                                        value
+
+                                    "Radiator cap" -> state.underBonnetChecks.radiatorCap =
+                                        value
+
+                                    "Braking system/ fluid levels" -> state.underBonnetChecks.braking =
+                                        value
+
+                                    "Horses/ tubes" -> state.underBonnetChecks.horsesTubes =
+                                        value
+
+                                    "Battery base/ clamps and fasteners" -> state.underBonnetChecks.battery =
+                                        value
+
+                                    "Wiring/ insulation" -> state.underBonnetChecks.wiring =
+                                        value
+
+                                    "Fuel and oil leaks" -> state.underBonnetChecks.fuelOilLeaks =
+                                        value
+
+                                    "Fuel system" -> state.underBonnetChecks.fuelSystem = value
+                                    "Exhaust system" -> state.underBonnetChecks.exhaustSystem =
+                                        value
+
+                                    "Steering and suspension systems" -> state.underBonnetChecks.steeringSuspensionSystem =
+                                        value
+
+                                    "Cleanliness" -> state.underBonnetChecks.cleanLines = value
+                                    "Vehicle structure" -> state.underBonnetChecks.vehicleStructure =
+                                        value
+                                }
+
+                                inspectionViewModel.updateState(state)
+                            }
+                        }
+                    }
+
+                    item {
+                        if (underVehicleSelected) {
+                            GroupListItem(
+                                list = uvChecks,
+                                state = state,
+                                comment = state.underVehicleChecks.comment,
+                                onCommentChanged = {
+                                    state.underVehicleChecks.comment = it
+                                    refresh()
+                                },
+                            ) { check, value ->
+                                when (check) {
+                                    "Brake pipes and brake systems" -> state.underVehicleChecks.brakesAndPipes =
+                                        value
+
+                                    "Parking brake system" -> state.underVehicleChecks.parkingBrakeSystem =
+                                        value
+
+                                    "Steering assembly and dust boots" -> state.underVehicleChecks.steeringAssemblyDustBoots =
+                                        value
+
+                                    "Wheels and tires" -> state.underVehicleChecks.wheelsAndTires =
+                                        value
+
+                                    "Front suspension including shock absorbers" -> state.underVehicleChecks.frontSuspension =
+                                        value
+
+                                    "Rear suspension including shock absorbers" -> state.underVehicleChecks.rearSuspension =
+                                        value
+
+                                    "Drive shaft" -> state.underVehicleChecks.driveShaft = value
+                                    "Engine and transmission mountings" -> state.underVehicleChecks.engineTransmissionMountings =
+                                        value
+
+                                    "Exhaust system mounting" -> state.underVehicleChecks.exhaustSystemMountings =
+                                        value
+
+                                    "Fuel and oil leaks (regular drip constant flow)" -> state.underVehicleChecks.fuelAndOilLeaks =
+                                        value
+
+                                    "Excessive corrosion" -> state.underVehicleChecks.excessiveCorrosion =
+                                        value
+
+                                    "Structure, general vehicle condition" -> state.underVehicleChecks.generalConditionAndStructure =
+                                        value
+                                }
+
+                                inspectionViewModel.updateState(state)
+                            }
+                        }
+                    }
+
+                    item {
+                        if (accessorySelected) {
+                            GroupListItem(
+                                list = accChecks,
+                                state = state,
+                                comment = state.accessoryChecks.comment,
+                                onCommentChanged = {
+                                    state.accessoryChecks.comment = it
+                                    refresh()
+                                },
+                            ) { check, value ->
+                                when (check) {
+                                    "Warning triangle" -> state.accessoryChecks.warningTriangle =
+                                        value
+
+                                    "Jack and wheel nut spanner" -> state.accessoryChecks.jackWheelNutSpanner =
+                                        value
+
+                                    "Spare tire (presence/ condition)" -> state.accessoryChecks.spareTire =
+                                        value
+
+                                    "Fire extinguisher" -> state.accessoryChecks.fireExtinguisher =
+                                        value
+                                }
+
+                                inspectionViewModel.updateState(state)
+                            }
+                        }
+                    }
+
+                    item {
+                        if (motorCycleSelected) {
+                            GroupListItem(
+                                list = mcChecks,
+                                state = state,
+                                comment = state.motorCycleChecks.comment,
+                                onCommentChanged = {
+                                    state.motorCycleChecks.comment = it
+                                    refresh()
+                                },
+                            ) { check, value ->
+                                when (check) {
+                                    "Wiring" -> state.motorCycleChecks.wiring = value
+                                    "Footrests" -> state.motorCycleChecks.footrests = value
+                                    "Steering head bearings" -> state.motorCycleChecks.steeringHeadBearings =
+                                        value
+
+                                    "Handle bars" -> state.motorCycleChecks.handleBars = value
+                                    "Stands" -> state.motorCycleChecks.stands = value
+                                    "Chains and guards" -> state.motorCycleChecks.chainsAndGuards =
+                                        value
+                                }
+
+                                inspectionViewModel.updateState(state)
+                            }
+                        }
+                    }
+                }
+            )
         }
+    }
+
+
+    if (showSubmissionDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                showSubmissionDialog = false
+            },
+            icon = { Icon(imageVector = Icons.Default.Warning, contentDescription = null) },
+            text = { Text(text = "Are you sure you went through all checks and you would like to submit them?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        inspectionViewModel.submitInspection(
+                            bookingId = bookingId,
+                            apiKey = apiKey,
+                            onSuccess = {
+                                navController.navigate("login-screen/0")
+                            },
+                            onUnauthorized = {
+                                // TODO: Reorganise here so that navigation flows nicely
+                                authorityViewModel.isUnauthorised()
+                                navController.navigate("login-screen/0")
+                            },
+                            onCommunicate = onCommunicate
+                        )
+                    }) {
+                    Text(text = "Yes")
+                }
+            }, dismissButton = {
+                TextButton(onClick = { showSubmissionDialog = false }) {
+                    Text(text = "No")
+                }
+            })
     }
 }
 
@@ -599,7 +652,7 @@ private fun GroupListItem(
     state: InspectionState,
     comment: String,
     onCommentChanged: (String) -> Unit,
-    onStateChanged: (String, Boolean) -> Unit,
+    onStateChanged: (String, Boolean?) -> Unit,
 ) {
     FlowRow(
         modifier = Modifier.fillMaxWidth(),
@@ -743,12 +796,12 @@ private fun ChecksChip(
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 private fun CheckChip(
     title: String,
     selected: Boolean?,
-    onStateChange: (String, Boolean) -> Unit,
+    onStateChange: (String, Boolean?) -> Unit,
 ) {
     var showDialog by remember { mutableStateOf(false) }
     var backgroundColor: Color? = null
@@ -766,7 +819,10 @@ private fun CheckChip(
                     selected = selected == true,
                     label = { Text(text = title, fontSize = 13.sp) },
                     onClick = {
-                        showDialog = !showDialog
+//                        showDialog = !showDialog
+                        if (selected == null) onStateChange(title, true)
+                        if (selected == true) onStateChange(title, false)
+                        if (selected == false) onStateChange(title, null)
                     },
                     modifier = Modifier
                         .padding(start = 8.dp)

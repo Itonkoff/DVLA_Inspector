@@ -1,4 +1,4 @@
-package com.dvla.pvts.dvlainspectorapp.ui.screens.inspection_prep
+package gh.gov.dvla.dvlainspector.ui.screens.inspection_prep
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -39,14 +39,6 @@ import com.dvla.pvts.dvlainspectorapp.data.network.models.LaneBooking
 import com.dvla.pvts.dvlainspectorapp.ui.viewmodels.InspectionViewModel
 import gh.gov.dvla.dvlainspector.ui.viewmodels.AuthorityViewModel
 
-fun getBookings(): List<LaneBooking> = listOf(
-    LaneBooking("LP5XCHLC80103090", "LP5XCHLC80103090", "M-09-UE-2018", "MOTOR BIKE", "08:00"),
-    LaneBooking("JT1LST17100064155", "JT1LST17100064155", "M-09-UE-2018", "SALOON", "09:00"),
-    LaneBooking("MD623BB2091C46673", "MD623BB2091C46673", "M-09-UE-2018", "MOTOR BIKE", "10:00"),
-    LaneBooking("LZL12P10X8HK65487", "LZL12P10X8HK65487", "M-09-UE-2018", "SALOON", "10:00"),
-)
-
-// TODO: Fix the bar height padding
 @OptIn(ExperimentalMaterialApi::class)
 @Composable
 fun LaneBookingsScreen(
@@ -54,6 +46,7 @@ fun LaneBookingsScreen(
     inspectionViewModel: InspectionViewModel,
     navController: NavHostController,
     laneId: String,
+    onCommunicate: (String, Int, () -> Unit) -> Unit,
 ) {
     val apiKey by authorityViewModel.apiKey.collectAsState()
     inspectionViewModel.getBookings(
@@ -62,7 +55,9 @@ fun LaneBookingsScreen(
         onUnauthorized = {
             authorityViewModel.isUnauthorised()
             navController.navigate("login-screen/0")
-        })
+        },
+        onCommunicate = onCommunicate
+    )
 
     val bookings by inspectionViewModel.laneBookings.collectAsState()
     val isRefreshingBookings by inspectionViewModel.isRefreshingBookings.collectAsState()
@@ -76,7 +71,9 @@ fun LaneBookingsScreen(
                 onUnauthorized = {
                     authorityViewModel.isUnauthorised()
                     navController.navigate("login-screen/0")
-                })
+                },
+                onCommunicate = onCommunicate
+            )
         })
 
     Box(
@@ -84,16 +81,25 @@ fun LaneBookingsScreen(
             .fillMaxSize()
             .pullRefresh(pullRefreshState)
     ) {
-        LazyVerticalGrid(
-            columns = GridCells.Fixed(count = 2),
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(end = 8.dp),
-            content = {
-                items(bookings) {
-                    LaneBooking(navController = navController, booking = it)
+        if (bookings.isNotEmpty()) {
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(count = 2),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(end = 8.dp),
+                content = {
+                    items(bookings) {
+                        LaneBooking(navController = navController, booking = it)
+                    }
                 }
-            })
+            )
+        } else {
+            Text(
+                text = "Nothing to show",
+                modifier = Modifier.align(Alignment.Center),
+                fontSize = 16.sp
+            )
+        }
 
         PullRefreshIndicator(
             isRefreshingBookings,
