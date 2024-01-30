@@ -4,12 +4,13 @@ package gh.gov.dvla.dvlainspector.ui.screens.inspection
 
 import android.Manifest
 import android.content.pm.PackageManager
-import android.net.Uri
+import android.graphics.Bitmap
 import android.text.TextUtils
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.result.launch
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.*
@@ -190,7 +191,9 @@ fun InspectionPoints(
 
     val isMotorCycle = inspectionViewModel.isVehicleAMotorCycle(bookingId)
 
-    var photos by remember { mutableStateOf(mutableListOf<Uri>()) }
+    var photos by remember { mutableStateOf(mutableListOf<Bitmap?>()) }
+
+    val contentResolver = LocalContext.current.contentResolver
 
     val pullRefreshState = rememberPullRefreshState(
         refreshing = isSubmitting,
@@ -247,9 +250,6 @@ fun InspectionPoints(
                                         "Under vehicle checks" -> underVehicleSelected = it
                                         "Accessory checks" -> accessorySelected = it
                                         "Motor cycle checks" -> motorCycleSelected = it
-                                        else -> {
-                                            false
-                                        }
                                     }
                                 }
                             )
@@ -274,9 +274,6 @@ fun InspectionPoints(
                                         "Under vehicle checks" -> underVehicleSelected = it
                                         "Accessory checks" -> accessorySelected = it
                                         "Motor cycle checks" -> motorCycleSelected = it
-                                        else -> {
-                                            false
-                                        }
                                     }
                                 }
                             )
@@ -286,8 +283,10 @@ fun InspectionPoints(
                         ChecksChip(
                             title = "Photos",
                             selected = photosSelected,
-                            onSelectedChange = { turnOffAll()
-                                photosSelected = !photosSelected }
+                            onSelectedChange = {
+                                turnOffAll()
+                                photosSelected = !photosSelected
+                            }
                         )
                     }
 
@@ -295,7 +294,7 @@ fun InspectionPoints(
                         ElevatedFilterChip(
                             selected = takePhoto,
                             onClick = {
-                                if(!takePhoto) takePhoto = true
+                                if (!takePhoto) takePhoto = true
                             },
                             modifier = Modifier
                                 .height(40.dp)
@@ -314,7 +313,7 @@ fun InspectionPoints(
                         ElevatedFilterChip(
                             selected = showSubmissionDialog,
                             onClick = {
-                                if(!showSubmissionDialog)showSubmissionDialog = true
+                                if (!showSubmissionDialog) showSubmissionDialog = true
                             },
                             modifier = Modifier
                                 .height(40.dp)
@@ -331,28 +330,28 @@ fun InspectionPoints(
                 })
 
             if (photosSelected) {
-
                 LazyVerticalGrid(
                     columns = GridCells.Fixed(count = 2),
                     modifier = Modifier.fillMaxSize(),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     content = {
-                        items(photos) { photoUri ->
-                            Log.i(TAG, "InspectionPoints: uri item: ${photoUri.path}")
+                        items(photos) { bitmap ->
                             SubcomposeAsyncImage(
-                                model = photoUri,
+                                model = bitmap,
                                 loading = {
                                     CircularProgressIndicator()
                                 },
-                                modifier = Modifier.shadow(elevation = 4.dp, shape = RoundedCornerShape(4.dp)),
+                                modifier = Modifier.shadow(
+                                    elevation = 4.dp,
+                                    shape = RoundedCornerShape(4.dp)
+                                ),
                                 contentDescription = null
                             )
                         }
                     }
                 )
             } else {
-
                 OutlinedTextField(
                     value = odometerReading,
                     onValueChange = {
@@ -689,10 +688,14 @@ fun InspectionPoints(
         TakeAPhoto {
             photos.add(it)
             inspectionViewModel.updateState(state)
+
             takePhoto = false
             Log.i(TAG, "InspectionPoints: ${photos.size}")
+            photosSelected = !photosSelected
+            photosSelected = !photosSelected
         }
     }
+
     if (showSubmissionDialog) {
         AlertDialog(
             onDismissRequest = {
@@ -706,7 +709,10 @@ fun InspectionPoints(
                         inspectionViewModel.submitInspection(
                             bookingId = bookingId,
                             apiKey = apiKey,
+                            images = photos,
+                            contentResolver = contentResolver,
                             onSuccess = {
+                                photos = mutableListOf()
                                 navController.navigate("login-screen/0")
                             },
                             onUnauthorized = {
@@ -728,51 +734,49 @@ fun InspectionPoints(
 }
 
 @Composable
-fun TakeAPhoto(onPhotoTaken: (Uri) -> Unit) {
+fun TakeAPhoto(onPhotoTaken: (Bitmap?) -> Unit) {
     val context = LocalContext.current
-    var currentPhotoUri by remember { mutableStateOf(value = Uri.EMPTY) }
-    val file = context.createImageFile()
+    val file = createImageFile()
+//    val uri = Uri.fromFile(file)
+    val applicationId = BuildConfig.APPLICATION_ID
+    Log.i(TAG, "TakeAPhoto: $applicationId")
     val uri = FileProvider.getUriForFile(
         Objects.requireNonNull(context),
-        BuildConfig.APPLICATION_ID + ".provider", file
+        "$applicationId.provider",
+        file
     )
 
     val cameraLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.TakePicture(),
-        onResult = { success ->
-            if (success){ currentPhotoUri = uri
-                Log.i(TAG, "TakeAPhoto: on success ${currentPhotoUri.path}")}
+        contract = ActivityResultContracts.TakePicturePreview(),
+        onResult = {
+            onPhotoTaken(it)
         }
     )
 
     val permissionLauncher =
-        rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
-            if (it) {
-                Toast.makeText(context, "Permission Granted", Toast.LENGTH_SHORT).show()
-                cameraLauncher.launch(uri)
+        rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
+            if (isGranted) {
+                cameraLauncher.launch()
             } else {
-                Toast.makeText(context, "Permission Denied", Toast.LENGTH_SHORT).show()
+                Toast.makeText(
+                    context,
+                    "Camera permission is required to be able to take photos",
+                    Toast.LENGTH_SHORT
+                ).show()
             }
         }
 
     val permissionCheckResult =
         ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA)
-    if (permissionCheckResult == PackageManager.PERMISSION_GRANTED) {
 
+    if (permissionCheckResult == PackageManager.PERMISSION_GRANTED) {
         SideEffect {
-            cameraLauncher.launch(uri)
+            cameraLauncher.launch()
         }
     } else {
         SideEffect {
-
-            // Request a permission
             permissionLauncher.launch(Manifest.permission.CAMERA)
         }
-    }
-
-    if (currentPhotoUri != Uri.EMPTY) {
-        onPhotoTaken(currentPhotoUri)
-        currentPhotoUri = Uri.EMPTY
     }
 }
 
@@ -908,8 +912,6 @@ private fun ChecksChip(
     selected: Boolean,
     onSelectedChange: (Boolean) -> Unit,
 ) {
-
-    val context = LocalContext.current
     if (selected) BorderStroke(0.dp, MaterialTheme.colorScheme.surface)
     else BorderStroke(1.dp, Color.Gray)
     FilterChip(

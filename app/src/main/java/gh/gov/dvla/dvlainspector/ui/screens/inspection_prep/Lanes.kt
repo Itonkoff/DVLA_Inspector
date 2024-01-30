@@ -20,6 +20,7 @@ import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -137,14 +138,16 @@ fun Lane(lane: Lane, navController: NavHostController) {
                         .padding(top = 48.dp),
                     textAlign = TextAlign.Start,
                     fontSize = 11.5.sp,
-                    fontWeight = FontWeight.SemiBold
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.Black
                 )
                 val bookingText =
                     if (lane.pendingBookingCount > 1 || lane.pendingBookingCount == 0) "bookings" else "booking"
                 Text(
                     text = "${lane.pendingBookingCount} $bookingText",
                     fontSize = 18.sp,
-                    fontWeight = FontWeight.ExtraLight
+                    fontWeight = FontWeight.ExtraLight,
+                    color = Color.Black
                 )
             }
 
@@ -157,7 +160,8 @@ fun Lane(lane: Lane, navController: NavHostController) {
                 ) {
                     Icon(
                         imageVector = Icons.Default.ChevronRight,
-                        contentDescription = "Proceed icon"
+                        contentDescription = "Proceed icon",
+                        tint = Color.Black
                     )
                 }
             }

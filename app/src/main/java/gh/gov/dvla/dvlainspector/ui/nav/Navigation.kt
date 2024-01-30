@@ -64,7 +64,7 @@ fun InspectionNavHost(
     }
 
     Scaffold(snackbarHost = { SnackbarHost(hostState = snackbarHostState) }) {
-        val padding = it
+        it
         NavHost(
             modifier = Modifier.fillMaxSize(),
             navController = navController,

@@ -36,7 +36,6 @@ fun LoginScreen(
     var password by remember { mutableStateOf("") }
 
     val loggedIn by authorityViewModel.isLogged.collectAsState()
-    val errorMessage by authorityViewModel.error.collectAsState()
 
     if (loggedIn) {
         navController.navigate(next)

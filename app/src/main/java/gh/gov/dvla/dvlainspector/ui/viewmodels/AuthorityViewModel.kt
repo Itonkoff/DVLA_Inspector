@@ -22,13 +22,9 @@ class AuthorityViewModel : ViewModel() {
     private val _isLogged = MutableStateFlow(false)
     val isLogged = _isLogged.asStateFlow()
 
-    private val _error = MutableStateFlow("")
-    val error: StateFlow<String> = _error.asStateFlow()
-
     fun login(email: String, password: String, onCommunicate: (String, Int, () -> Unit) -> Unit) {
         viewModelScope.launch {
             try {
-                _error.value = ""
                 val response = postLogin(email, password)
 
                 if (response.status == HttpStatusCode.InternalServerError) {

@@ -135,7 +135,8 @@ fun LaneBooking(booking: LaneBooking, navController: NavHostController) {
                     .align(Alignment.TopCenter),
                 textAlign = TextAlign.Center,
                 fontSize = 11.5.sp,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
+                color = Color.Black
             )
             Column(
                 modifier = Modifier
@@ -149,7 +150,8 @@ fun LaneBooking(booking: LaneBooking, navController: NavHostController) {
                             .fillMaxWidth(),
                         textAlign = TextAlign.Center,
                         fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Black
                     )
                 }
                 Text(
@@ -158,7 +160,8 @@ fun LaneBooking(booking: LaneBooking, navController: NavHostController) {
                         .fillMaxWidth(),
                     textAlign = TextAlign.Center,
                     fontSize = 10.sp,
-                    fontWeight = FontWeight.ExtraBold
+                    fontWeight = FontWeight.ExtraBold,
+                    color = Color.Black
                 )
             }
             Row(
@@ -172,7 +175,8 @@ fun LaneBooking(booking: LaneBooking, navController: NavHostController) {
                 Text(
                     text = booking.proposedTime,
                     fontSize = 10.sp,
-                    fontWeight = FontWeight.SemiBold
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.Black
                 )
 
                 IconButton(
@@ -180,7 +184,8 @@ fun LaneBooking(booking: LaneBooking, navController: NavHostController) {
                 ) {
                     Icon(
                         imageVector = Icons.Default.ChevronRight,
-                        contentDescription = "Proceed icon"
+                        contentDescription = "Proceed icon",
+                        tint = Color.Black
                     )
                 }
             }

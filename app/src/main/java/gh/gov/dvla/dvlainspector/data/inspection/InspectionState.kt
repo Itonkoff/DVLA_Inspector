@@ -8,8 +8,10 @@ class InspectionState(
     var underBonnetChecks: UnderBonnetChecks = UnderBonnetChecks(),
     var underVehicleChecks: UnderVehicleChecks = UnderVehicleChecks(),
     var accessoryChecks: AccessoryChecks = AccessoryChecks(),
-    var motorCycleChecks: MotorCycleChecks = MotorCycleChecks()
+    var motorCycleChecks: MotorCycleChecks = MotorCycleChecks(),
 ) {
+
+
     fun clone(state: InspectionState): InspectionState {
         odometerReading = state.odometerReading
         interiorChecks = state.interiorChecks

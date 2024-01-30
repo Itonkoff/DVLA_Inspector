@@ -1,5 +1,7 @@
 package com.dvla.pvts.dvlainspectorapp.ui.viewmodels
 
+import android.content.ContentResolver
+import android.graphics.Bitmap
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -9,6 +11,7 @@ import gh.gov.dvla.dvlainspector.data.inspection.InspectionState
 import gh.gov.dvla.dvlainspector.data.network.getAffiliatedLanes
 import gh.gov.dvla.dvlainspector.data.network.getLaneBookings
 import gh.gov.dvla.dvlainspector.data.network.postInspection
+import gh.gov.dvla.dvlainspector.helpers.toMap
 import io.ktor.client.call.body
 import io.ktor.client.network.sockets.ConnectTimeoutException
 import io.ktor.http.HttpStatusCode
@@ -16,7 +19,6 @@ import io.ktor.http.isSuccess
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 private const val TAG = "InspectionViewModel"
@@ -127,17 +129,22 @@ class InspectionViewModel : ViewModel() {
     fun submitInspection(
         bookingId: String,
         apiKey: String,
+        images: MutableList<Bitmap?>,
+        contentResolver: ContentResolver,
         onSuccess: () -> Unit,
         onUnauthorized: () -> Unit,
         onCommunicate: (String, Int, () -> Unit) -> Unit,
     ) {
+
         viewModelScope.launch {
             try {
                 _isPostingInspection.value = true
                 val response = postInspection(
                     id = bookingId,
                     apiKey = apiKey,
-                    inspectionState = _inspectionState.value
+                    inspectionState = toMap(_inspectionState.value),
+                    images =images,
+                    contentResolver=contentResolver
                 )
 
                 if (response.status == HttpStatusCode.InternalServerError) {
@@ -145,9 +152,11 @@ class InspectionViewModel : ViewModel() {
                         submitInspection(
                             bookingId = bookingId,
                             apiKey = apiKey,
+                            images = images,
                             onSuccess = onSuccess,
                             onUnauthorized = onUnauthorized,
-                            onCommunicate = onCommunicate
+                            onCommunicate = onCommunicate,
+                            contentResolver = contentResolver
                         )
                     }
                     return@launch
