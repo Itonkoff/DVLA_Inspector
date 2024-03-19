@@ -2,11 +2,11 @@ package gh.gov.dvla.dvlainspector.data.inspection
 
 @kotlinx.serialization.Serializable
 class MotorCycleChecks(
-    var wiring: Boolean? = null,
-    var footrests: Boolean? = null,
-    var steeringHeadBearings: Boolean? = null,
-    var handleBars: Boolean? = null,
-    var stands: Boolean? = null,
-    var chainsAndGuards: Boolean? = null,
+    var wiring: Int = 0,
+    var footrests: Int = 0,
+    var steeringHeadBearings: Int = 0,
+    var handleBars: Int = 0,
+    var stands: Int = 0,
+    var chainsAndGuards: Int = 0,
     var comment: String = "",
 )

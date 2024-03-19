@@ -5,7 +5,6 @@ package gh.gov.dvla.dvlainspector.ui.screens.inspection
 import android.Manifest
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
-import android.text.TextUtils
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -787,7 +786,7 @@ private fun GroupListItem(
     state: InspectionState,
     comment: String,
     onCommentChanged: (String) -> Unit,
-    onStateChanged: (String, Boolean?) -> Unit,
+    onStateChanged: (String, Int) -> Unit,
 ) {
     FlowRow(
         modifier = Modifier.fillMaxWidth(),
@@ -881,7 +880,7 @@ private fun GroupListItem(
                     "Stands" -> state.motorCycleChecks.stands
                     "Chains and guards" -> state.motorCycleChecks.chainsAndGuards
 
-                    else -> false
+                    else -> -1
                 }, onStateChange = onStateChanged
             )
         }
@@ -935,60 +934,96 @@ private fun ChecksChip(
 @Composable
 private fun CheckChip(
     title: String,
-    selected: Boolean?,
-    onStateChange: (String, Boolean?) -> Unit,
+    selected: Int,
+    onStateChange: (String, Int) -> Unit,
 ) {
+    Log.i(TAG, "CheckChip: $selected")
     var showDialog by remember { mutableStateOf(false) }
-    var backgroundColor: Color? = null
+    val colors = when (selected) {
+        1 -> FilterChipDefaults.filterChipColors(
+            containerColor = MaterialTheme.colorScheme.primary,
+            labelColor = MaterialTheme.colorScheme.onPrimary
+        )
 
-    if (selected == false) backgroundColor = MaterialTheme.colorScheme.error.copy(alpha = .25f)
+        2 -> FilterChipDefaults.filterChipColors(
+            containerColor = MaterialTheme.colorScheme.primary.copy(
+                alpha = .35f
+            )
+        )
+
+        3 -> FilterChipDefaults.filterChipColors(
+            containerColor = MaterialTheme.colorScheme.error.copy(
+                alpha = .35f
+            )
+        )
+
+        4 -> FilterChipDefaults.filterChipColors(
+            containerColor = MaterialTheme.colorScheme.error,
+            labelColor = MaterialTheme.colorScheme.onPrimary
+        )
+
+        else -> FilterChipDefaults.filterChipColors()
+    }
 
     Box {
-        if (!TextUtils.isEmpty(title)) {
-            (if (selected != false) FilterChipDefaults.filterChipColors() else backgroundColor?.let {
-                FilterChipDefaults.filterChipColors(
-                    containerColor = it
-                )
-            })?.let {
-                FilterChip(
-                    selected = selected == true,
-                    label = { Text(text = title, fontSize = 13.sp) },
-                    onClick = {
-//                        showDialog = !showDialog
-                        if (selected == null) onStateChange(title, true)
-                        if (selected == true) onStateChange(title, false)
-                        if (selected == false) onStateChange(title, null)
-                    },
-                    modifier = Modifier
-                        .padding(start = 8.dp)
-                        .height(40.dp),
-                    colors = it,
-                    shape = RoundedCornerShape(6.dp),
-                    border = if (selected == false) null else FilterChipDefaults.filterChipBorder()
-                )
-            }
 
-            if (showDialog) PassFailDialog(
-                title = title,
-                onPassFail = onStateChange,
-                onDismiss = { showDialog = false })
-        }
+        FilterChip(
+            selected = false,
+            label = { Text(text = title, fontSize = 13.sp) },
+            onClick = {
+                //                        showDialog = !showDialog
+                when (selected) {
+                    0 -> onStateChange(title, 1)
+                    1 -> onStateChange(title, 2)
+                    2 -> onStateChange(title, 3)
+                    3 -> onStateChange(title, 4)
+                    4 -> onStateChange(title, 0)
+                }
+            },
+            modifier = Modifier
+                .padding(start = 8.dp)
+                .height(40.dp),
+            colors = colors,
+            shape = RoundedCornerShape(6.dp),
+            border = FilterChipDefaults.filterChipBorder()
+        )
+
+        if (showDialog) PassFailDialog(
+            title = title,
+            onPassFail = onStateChange,
+            onDismiss = { showDialog = false })
     }
 }
 
 @Composable
-fun PassFailDialog(title: String, onPassFail: (String, Boolean) -> Unit, onDismiss: () -> Unit) {
+fun PassFailDialog(title: String, onPassFail: (String, Int) -> Unit, onDismiss: () -> Unit) {
     DropdownMenu(expanded = true, onDismissRequest = { onDismiss() }) {
         DropdownMenuItem(text = {
             Text(text = "PASSED", fontSize = 13.sp, fontStyle = FontStyle.Italic)
         }, onClick = {
-            onPassFail(title, true)
+            onPassFail(title, 1)
             onDismiss()
         })
         DropdownMenuItem(text = {
-            Text(text = "FAILED", fontSize = 13.sp, fontStyle = FontStyle.Italic)
+            Text(text = "PASSED WITH CAUTION", fontSize = 13.sp, fontStyle = FontStyle.Italic)
         }, onClick = {
-            onPassFail(title, false)
+            onPassFail(title, 2)
+            onDismiss()
+        })
+        DropdownMenuItem(text = {
+            Text(text = "FAILED WITH MAJOR DEFECT", fontSize = 13.sp, fontStyle = FontStyle.Italic)
+        }, onClick = {
+            onPassFail(title, 3)
+            onDismiss()
+        })
+        DropdownMenuItem(text = {
+            Text(
+                text = "FAILED WITH A DANGEROUS DEFECT",
+                fontSize = 13.sp,
+                fontStyle = FontStyle.Italic
+            )
+        }, onClick = {
+            onPassFail(title, 4)
             onDismiss()
         })
     }
